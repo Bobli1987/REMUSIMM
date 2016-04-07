@@ -343,7 +343,7 @@ void PrintProgBar(const size_t &percent) {
     cout << percent << "%    " << flush;
 }
 // save velocity and position data into text files
-void OutputData(Remus &vehicle, const string &mode = "trunc", const string &velocity_file = "velocity_file.dat",
+void OutputData(const Remus &vehicle, const string &mode = "trunc", const string &velocity_file = "velocity_file.dat",
                 const string &position_file = "position_file.dat", const string &rvelocity_file = "relative_vel_file.dat")
 {
     ofstream velocity_out, position_out, rvelocity_out;
