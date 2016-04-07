@@ -34,6 +34,7 @@ class Remus
 {
     friend void RunRemus(Remus&, const size_t&, const double&);
     friend void OutputData(Remus&, const string&, const string&, const string&, const string&);
+    friend class MovingMassController;
 
 public:
     // constructors
@@ -415,7 +416,7 @@ void RunRemus(Remus &vehicle, const size_t &step_number = 600, const double &ste
         vehicle.position_history_.push_back(vehicle.position_);
         vehicle.relative_velocity_history_.push_back(vehicle.relative_velocity_);
 
-        // display a progress bar
+        // display a progress bar on the console
         size_t percent = counter * 100/step_number;
         PrintProgBar(percent);
         // write the current velocity and position data into the output files
