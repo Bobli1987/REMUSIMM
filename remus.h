@@ -15,12 +15,10 @@
 #include <vector>
 #include <Eigen/Dense>
 #include <boost/math/constants/constants.hpp>
-#include <boost/numeric/odeint.hpp>
 #include "current.h"
 
 using namespace std;
 using namespace Eigen;
-using namespace boost::numeric::odeint;
 
 // constant pi
 const double pi = boost::math::constants::pi<double>();
@@ -33,7 +31,6 @@ typedef Matrix<double, 12, 1> Vector12d;
 class Remus
 {
     friend void RunRemus(Remus&, const size_t&, const double&);
-    friend void OutputData(const Remus&, const string&, const string&, const string&, const string&);
     friend class MovingMassController;
 
 public:
@@ -70,8 +67,6 @@ private:
     double step_size_ = 0.0;
     // step number of the current simulation
     size_t step_number_ = 0;
-    // elapsed time since current simulation starts
-    double current_time_ = 0.0;
     // counter of steps
     size_t step_counter_ = 0;
 
@@ -79,6 +74,8 @@ private:
     const OceanCurrent ocean_current_{OceanCurrent({0, 0.2, 0, 0, 0, 0})};
 
 public:
+    // elapsed time since current simulation starts
+    double current_time_ = 0.0;
     // initial velocity and position(and orientation) of the vehicle
     vector<double> init_velocity_, init_position_;
     // current velocity and position of the vehicle
@@ -89,6 +86,8 @@ public:
     vector<double> time_vec_ = {0};
     // array of velocity and position vectors during the simulation
     vector<Vector6d> velocity_history_, position_history_, relative_velocity_history_;
+    // actuation acting on the vehicle
+    Vector6d actuation_;
 
     // 3X3 matrix which maps a vector to the Lie algebra of SO(3)
     inline Matrix3d CrossProductOperator(const Vector3d &vec) const;
@@ -121,8 +120,6 @@ public:
     // restoring force due to gravity and buoyancy
     Vector6d RestoringForceVector(const Vector6d &vec) const;
 
-    // control force on the vehicle
-    Vector6d ControlForce() const;
     // time derivative of the system state
     Vector12d StateDerivative(const Vector6d &velocity, const Vector6d &position, const double /* t */) const;
     // operator function to integrate
@@ -142,6 +139,7 @@ Remus::Remus(const vector<double> &init_velocity, const vector<double> &init_pos
     velocity_history_ = {velocity_};
     position_history_ = {position_};
     relative_velocity_history_ = {relative_velocity_};
+    actuation_ << 9, 0, 0, 0, 0, 0;
 }
 // The ocean current velocity with respect to the body-fixed frame
 Vector6d Remus::CurrentVelocity(const Vector6d &position) const {
@@ -281,12 +279,6 @@ Vector6d Remus::RestoringForceVector(const Vector6d &vec) const {
                 -CrossProductOperator(cob_) * RotationMatrix(angle).transpose() * vb;
     return restoring;
 }
-// control force on the vehicle
-Vector6d Remus::ControlForce() const {
-    Vector6d control_force;
-    control_force << 9, 0, 0, 0, 0, 0;
-    return control_force;
-}
 // time derivative of the system state
 Vector12d Remus::StateDerivative(const Vector6d &velocity, const Vector6d &position, const double) const {
     Vector12d state_derivative;
@@ -305,7 +297,7 @@ Vector12d Remus::StateDerivative(const Vector6d &velocity, const Vector6d &posit
             - AddedMassCCMatrix(relative_velocity) * relative_velocity
             - RigidBodyCCMatrix(velocity) * velocity
             + ViscousDampingVector(relative_velocity)
-            + RestoringForceVector(position) + ControlForce());
+            + RestoringForceVector(position) + actuation_);
     vec2 = TransformationMatrix(angle) * velocity;
     state_derivative << vec1, vec2;
     // ignore heave and pitch motion
@@ -326,104 +318,5 @@ void Remus::operator()(const vector<double> &state, vector<double> &state_deriva
         state_derivative[index] = dy[index];
     }
 }
-// progress bar
-void PrintProgBar(const size_t &percent) {
-    string bar;
-    for (size_t i = 0; i < 50; ++i) {
-        if (i < (percent/2)) {
-            bar.replace(i, 1, "-");
-        } else if (i == (percent/2)) {
-            bar.replace(i, 1, ">");
-        } else {
-            bar.replace(i, 1, " ");
-        }
-    }
-    cout << "\r" "[" << bar << "]";
-    cout.width(3);
-    cout << percent << "%    " << flush;
-}
-// save velocity and position data into text files
-void OutputData(const Remus &vehicle, const string &mode = "trunc", const string &velocity_file = "velocity_file.dat",
-                const string &position_file = "position_file.dat", const string &rvelocity_file = "relative_vel_file.dat")
-{
-    ofstream velocity_out, position_out, rvelocity_out;
-    if (mode == "trunc") {
-        velocity_out.open(velocity_file);
-        position_out.open(position_file);
-        rvelocity_out.open(rvelocity_file);
-    } else {
-        velocity_out.open(velocity_file, ofstream::app);
-        position_out.open(position_file, ofstream::app);
-        rvelocity_out.open(rvelocity_file, ofstream::app);
-    }
-    
-    // first column is time
-    velocity_out << fixed << setprecision(1) << vehicle.current_time_ << '\t';
-	velocity_out << setprecision(5);
-    // the remaining columns are data
-    for (size_t index = 0; index < 6; ++index) {
-        velocity_out << scientific << vehicle.velocity_[index] << '\t';
-    }
-    velocity_out << endl;
-    // position
-    position_out << fixed << setprecision(1) << vehicle.current_time_ << '\t';
-	position_out << setprecision(5);
-    for (size_t index = 0; index < 6; ++index) {
-        position_out << scientific << vehicle.position_[index] << '\t';
-    }
-    position_out << endl;
-    // relative velocity
-    rvelocity_out << fixed << setprecision(1) << vehicle.current_time_ << '\t';
-    rvelocity_out << setprecision(5);
-    for (size_t index = 0; index < 6; ++index) {
-        rvelocity_out << scientific << vehicle.relative_velocity_[index] << '\t';
-    }
-    rvelocity_out << endl;
-    // close the files
-    velocity_out.close();
-    position_out.close();
-    rvelocity_out.close();
-}
-// conduct a simulation of the vehicle's motion
-void RunRemus(Remus &vehicle, const size_t &step_number = 600, const double &step_size = 0.1) {
-    vehicle.step_number_ = step_number;
-    vehicle.step_size_ = step_size;
-    runge_kutta_dopri5 <vector<double>> stepper;
-    vector<double> state;
-    for (size_t index = 0; index < 6; ++index) {
-        state.push_back(vehicle.velocity_[index]);
-    }
-    for (size_t index = 0; index < 6; ++index) {
-        state.push_back(vehicle.position_[index]);
-    }
-    // save current velocity and position data into two separate files
-    OutputData(vehicle);
-    // start the simulation
-    cout << "The simulation will run for " << step_number << " steps. " << "The step size is "
-         << step_size << " second." << endl;
-    cout << "Please be patient. Running.............." << endl;
-    for (size_t counter = 1; counter <= step_number; ++counter) {
-        // call the ode solver
-        stepper.do_step(vehicle, state, vehicle.current_time_, step_size);
-        // update the data members of the object
-        ++vehicle.step_counter_;
-        vehicle.current_time_ += step_size;
-        vehicle.time_vec_.push_back(vehicle.current_time_);
-        vehicle.velocity_ << state[0], state[1], state[2], state[3], state[4], state[5];
-        vehicle.position_ << state[6], state[7], state[8], state[9], state[10], state[11];
-        vehicle.relative_velocity_<< vehicle.velocity_ - vehicle.CurrentVelocity(vehicle.position_);
-        vehicle.velocity_history_.push_back(vehicle.velocity_);
-        vehicle.position_history_.push_back(vehicle.position_);
-        vehicle.relative_velocity_history_.push_back(vehicle.relative_velocity_);
-
-        // display a progress bar on the console
-        size_t percent = counter * 100/step_number;
-        PrintProgBar(percent);
-        // write the current velocity and position data into the output files
-        OutputData(vehicle, "app");
-    }
-    cout << endl << "The simulation is done." << endl;
-}
-
 
 #endif //REMUSIMM_REMUS_H
