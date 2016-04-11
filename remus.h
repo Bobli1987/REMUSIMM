@@ -30,7 +30,7 @@ typedef Matrix<double, 12, 1> Vector12d;
 // Class Remus
 class Remus
 {
-    friend void RunRemus(Remus&, const size_t&, const double&);
+    friend void RunRemus(Remus&, const double&, const size_t&, const double&);
     friend class MovingMassController;
 
 public:

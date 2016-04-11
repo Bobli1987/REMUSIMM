@@ -18,7 +18,7 @@ using namespace boost::numeric::odeint;
 // control the position of the internal moving mass to achieve heading stabilization
 class MovingMassController
 {
-    friend void RunRemus(Remus&, const size_t&, const double&);
+    friend void RunRemus(Remus&, const double&, const size_t&, const double&);
 public:
     // constructor
     MovingMassController(const Remus&, const double&, const double&, const double&, const double&, const double&);
@@ -28,7 +28,6 @@ private:
     // controller parameters
     const double k0_, k1_, k2_, k3_, k4_;
     // intermediate parameters
-    double mass_, a22_;
     double A_, B_, C_, E_, F_, L_, M_, N_, Nq_, epsilon1_, epsilon2_, epsilon3_, epsilon4_;
     double beta1_, beta2_, beta3_, beta4_, gamma1_, gamma2_, gamma3_, gamma4_;
     double G_, dG_, H_, dH_, Gamma1_, Gamma2_, I_, dI_, J_, dJ_, Gamma4_;
@@ -164,7 +163,6 @@ vector<double> MovingMassController::ComputeActuation(const Vector6d &rvelocity,
     // actuation stores both the tunnel thrust and mass position
     vector<double> actuation(2, 0);
 
-
     // set saturation to the mass position
     double mass_pos = (-k4_*z4-z3-f3(v,r,p,phi)+dalpha3)/g3_;
     mass_pos = abs(mass_pos) > 0.06 ? boost::math::sign(mass_pos)*0.06 : mass_pos;
@@ -249,13 +247,13 @@ void OutputData(const Remus &vehicle, const MovingMassController &controller, co
     control_out.close();
 }
 // conduct a simulation of the vehicle's motion
-void RunRemus(Remus &vehicle, const size_t &step_number = 600, const double &step_size = 0.1) {
+void RunRemus(Remus &vehicle, const double &heading_ref, const size_t &step_number = 600, const double &step_size = 0.1) {
     vehicle.step_number_ = step_number;
     vehicle.step_size_ = step_size;
     // ode solver
     runge_kutta_dopri5 <vector<double>> stepper;
     // internal moving mass controller
-    MovingMassController controller(vehicle);
+    MovingMassController controller(vehicle, 0.3, 0.8, 1, 1, 1);
     vector<double> state;
     vector<double> ctr_signal;
     for (size_t index = 0; index < 6; ++index) {
@@ -286,7 +284,7 @@ void RunRemus(Remus &vehicle, const size_t &step_number = 600, const double &ste
         vehicle.relative_velocity_history_.push_back(vehicle.relative_velocity_);
 
         // use the controller to compute actuation
-        ctr_signal = controller.ComputeActuation(vehicle.relative_velocity_, vehicle.position_, 0, step_size);
+        ctr_signal = controller.ComputeActuation(vehicle.relative_velocity_, vehicle.position_, heading_ref, step_size);
         vehicle.actuation_[1] = -(vehicle.mass_+vehicle.a22_)*ctr_signal[1];
         vehicle.actuation_[3] = controller.mv_*vehicle.gravity_*ctr_signal[0]*cos(state[9]);
         vehicle.actuation_[3] += -vehicle.mass_*ctr_signal[1] * vehicle.cog_[2];
