@@ -284,10 +284,13 @@ void RunRemus(Remus &vehicle, const double &heading_ref, const size_t &step_numb
         vehicle.relative_velocity_history_.push_back(vehicle.relative_velocity_);
 
         // use the controller to compute actuation
-        ctr_signal = controller.ComputeActuation(vehicle.relative_velocity_, vehicle.position_, heading_ref, step_size);
-        vehicle.actuation_[1] = -(vehicle.mass_+vehicle.a22_)*ctr_signal[1];
-        vehicle.actuation_[3] = controller.mv_*vehicle.gravity_*ctr_signal[0]*cos(state[9]);
-        vehicle.actuation_[3] += -vehicle.mass_*ctr_signal[1] * vehicle.cog_[2];
+        if (vehicle.control_on_) {
+            ctr_signal = controller.ComputeActuation(vehicle.relative_velocity_, vehicle.position_, heading_ref, step_size);
+            vehicle.actuation_[1] = -(vehicle.mass_+vehicle.a22_)*ctr_signal[1];
+            vehicle.actuation_[3] = controller.mv_*vehicle.gravity_*ctr_signal[0]*cos(state[9]);
+            vehicle.actuation_[3] += -vehicle.mass_*ctr_signal[1] * vehicle.cog_[2];
+        }
+
 
         // display a progress bar on the console
         size_t percent = counter * 100/step_number;

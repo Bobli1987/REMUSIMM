@@ -35,9 +35,13 @@ class Remus
 
 public:
     // constructors
-    Remus(const vector<double> &init_velocity, const vector<double> &init_position);
-    Remus(): Remus({1.5, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0}) {}
-    Remus(const vector<double> &init_velocity): Remus(init_velocity, {0, 0, 0, 0, 0, 0}) {}
+    Remus(const vector<double> &init_velocity, const vector<double> &init_position,
+          const vector<double> &current_velocity, const double &main_thrust, const bool &control_on);
+    Remus(): Remus({1.5, 0, 0, 0, 0, 0}, {0, 0, 0, 0, 0, 0}, {0, 0, 0}, 9, true) {}
+    Remus(const vector<double> &init_velocity): Remus(init_velocity, {0, 0, 0, 0, 0, 0}, {0, 0, 0}, 9, true) {}
+    Remus(const vector<double> &init_velocity, const vector<double> &init_position,
+          const vector<double> &current_velocity, const double &main_thrust):
+            Remus(init_velocity, init_position, current_velocity, main_thrust, true) {}
 
 private:
     // parameters of the vehicle
@@ -71,7 +75,9 @@ private:
     size_t step_counter_ = 0;
 
     // ocean current model
-    const OceanCurrent ocean_current_{OceanCurrent({0, 0.2, 0, 0, 0, 0})};
+    OceanCurrent ocean_current_;
+    // controller switch
+    bool control_on_ = true;
 
 public:
     // elapsed time since current simulation starts
@@ -131,15 +137,18 @@ public:
     Vector6d CurrentAcceleration(const Vector6d&, const Vector6d&) const;
 };
 // constructor definition
-Remus::Remus(const vector<double> &init_velocity, const vector<double> &init_position):
+Remus::Remus(const vector<double> &init_velocity, const vector<double> &init_position,
+             const vector<double> &current_velocity, const double &main_thrust, const bool &control_on):
         init_velocity_(init_velocity), init_position_(init_position) {
     velocity_ << init_velocity[0], init_velocity[1], init_velocity[2], init_velocity[3], init_velocity[4], init_velocity[5];
     position_ << init_position[0], init_position[1], init_position[2], init_position[3], init_position[4], init_position[5];
+    ocean_current_ = OceanCurrent(current_velocity);
     relative_velocity_ = velocity_ - CurrentVelocity(position_);
     velocity_history_ = {velocity_};
     position_history_ = {position_};
     relative_velocity_history_ = {relative_velocity_};
-    actuation_ << 9, 0, 0, 0, 0, 0;
+    actuation_ << main_thrust, 0, 0, 0, 0, 0;
+    control_on_ = control_on;
 }
 // The ocean current velocity with respect to the body-fixed frame
 Vector6d Remus::CurrentVelocity(const Vector6d &position) const {

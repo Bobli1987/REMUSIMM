@@ -20,12 +20,11 @@ class OceanCurrent
 public:
     // constructor
     OceanCurrent(const vector<double> &uniform_velocity): uniform_velocity_(uniform_velocity) {};
-    OceanCurrent(): OceanCurrent({0, 0, 0, 0, 0, 0}) {};
+    OceanCurrent(): OceanCurrent({0, 0, 0}) {};
     // return the uniform velocity of the current
     Vector6d GetCurrentVelocity() const {
         Vector6d velocity;
-        velocity << uniform_velocity_[0], uniform_velocity_[1], uniform_velocity_[2],
-                    uniform_velocity_[3], uniform_velocity_[4], uniform_velocity_[5];
+        velocity << uniform_velocity_[0], uniform_velocity_[1], uniform_velocity_[2], 0, 0, 0;
         return velocity;
     }
 
