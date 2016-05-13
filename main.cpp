@@ -8,7 +8,7 @@ using namespace std;
 int main() {
     size_t step_number;
     double heading_ref;
-    Remus a({1.5, 0, 0, 0 ,0 ,0}, {0, 0, 0, 0, 0, 0}, {0, 0.2, 0}, 9);
+    Remus a({1.0, 0, 0, 0 ,0 ,0}, {0, 0, 0, 0, 0, 0}, {0, 0.2, 0}, 4);
 
     cout << "Please input the heading reference: ";
     cin >> heading_ref;

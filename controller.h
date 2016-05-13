@@ -176,7 +176,7 @@ vector<double> MovingMassController::ComputeActuation(const Vector6d &rvelocity,
     // internal moving mass position
     actuation[0] = mass_pos;
     // acceleration along y axis
-    actuation[1] = abs(epsilon42_*actuation[0])*sat(errors[2]/0.001);
+    actuation[1] = abs(epsilon42_*actuation[0])*sat(errors[2]/1e-3);
 
     mass_position_ = mass_pos;
 
