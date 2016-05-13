@@ -49,6 +49,7 @@ private:
     inline double dddr(const double&, const double&, const double&, const double&) const;
     inline double dv(const double&, const double&, const double&) const;
     inline double ddv(const double&, const double&, const double&, const double&) const;
+    inline double sat(const double&) const;
 
 public:
     double mass_position_ = 0;
@@ -129,6 +130,10 @@ double MovingMassController::dv(const double &v, const double &r, const double &
 double MovingMassController::ddv(const double &v, const double &r, const double &p, const double &phi) const {
     return pf2pv(v)*dv(v,r,phi) + pf2pr(r)*dr(v,r) + g2_*p;
 }
+
+double MovingMassController::sat(const double &x) const {
+    return ( abs(x) <= 1 ? x : boost::math::sign(x) );
+}
 vector<double> MovingMassController::ComputeActuation(const Vector6d &rvelocity, const Vector6d &position,
                                                       const double &heading_ref, const double &step_size) {
     double v = rvelocity[1]; // sway velocity
@@ -171,7 +176,7 @@ vector<double> MovingMassController::ComputeActuation(const Vector6d &rvelocity,
     // internal moving mass position
     actuation[0] = mass_pos;
     // acceleration along y axis
-    actuation[1] = abs(epsilon42_*actuation[0])*boost::math::sign(errors[2]);
+    actuation[1] = abs(epsilon42_*actuation[0])*sat(errors[2]/0.001);
 
     mass_position_ = mass_pos;
 
