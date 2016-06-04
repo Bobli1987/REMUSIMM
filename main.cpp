@@ -15,7 +15,7 @@ int main() {
     cout << "Please input the step number: ";
     cin >> step_number;
     RunRemus(a, heading_ref, step_number);
-    std::cout << "The velocity of the vehilce is: " << std::endl;
+    std::cout << "The velocity of the vehicle is: " << std::endl;
     std::cout << a.velocity_.transpose() << std::endl;
 
     return 0;
