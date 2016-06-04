@@ -283,7 +283,7 @@ void RunRemus(Remus &vehicle, const double &heading_ref, const size_t &step_numb
         vehicle.time_vec_.push_back(vehicle.current_time_);
         vehicle.velocity_ << state[0], state[1], state[2], state[3], state[4], state[5];
         vehicle.position_ << state[6], state[7], state[8], state[9], state[10], state[11];
-        vehicle.relative_velocity_ << vehicle.velocity_ - vehicle.CurrentVelocity(vehicle.position_);
+        vehicle.relative_velocity_ = vehicle.velocity_ - vehicle.CurrentVelocity(vehicle.position_);
         vehicle.velocity_history_.push_back(vehicle.velocity_);
         vehicle.position_history_.push_back(vehicle.position_);
         vehicle.relative_velocity_history_.push_back(vehicle.relative_velocity_);

@@ -247,7 +247,7 @@ Matrix3d Remus::DisplacedMassInertiaMoment() const {
 Matrix6d Remus::DisplacedMassInertiaMatrix() const {
     Matrix6d inertia_mat;
     inertia_mat << displaced_mass_ * Matrix3d::Identity(), -displaced_mass_ * CrossProductOperator(cob_),
-            displaced_mass_ * CrossProductOperator(cob_), DisplacedMassInertiaMoment();
+                   displaced_mass_ * CrossProductOperator(cob_), DisplacedMassInertiaMoment();
     return inertia_mat;
 }
 // centripetal-coriolis matrix of the displaced fluid
@@ -255,9 +255,9 @@ Matrix6d Remus::DisplacedMassCCMatrix(const Vector6d &vec) const {
     Vector3d angular_vel = {vec[3], vec[4], vec[5]};
     Matrix6d cc_mat;
     cc_mat << displaced_mass_ * CrossProductOperator(angular_vel),
-            -displaced_mass_ * CrossProductOperator(angular_vel) * CrossProductOperator(cob_),
-            displaced_mass_ * CrossProductOperator(cob_) * CrossProductOperator(angular_vel),
-            -CrossProductOperator(DisplacedMassInertiaMoment() * angular_vel);
+             -displaced_mass_ * CrossProductOperator(angular_vel) * CrossProductOperator(cob_),
+              displaced_mass_ * CrossProductOperator(cob_) * CrossProductOperator(angular_vel),
+             -CrossProductOperator(DisplacedMassInertiaMoment() * angular_vel);
     return cc_mat;
 }
 // viscous hydrodynamic damping vector
