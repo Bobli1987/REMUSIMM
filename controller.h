@@ -12,13 +12,14 @@
 #include <boost/numeric/odeint.hpp>
 #include "remus.h"
 
-using namespace std;
-using namespace boost::numeric::odeint;
-
 // control the position of the internal moving mass to achieve heading stabilization
 class MovingMassController
 {
     friend void RunRemus(Remus&, const double&, const size_t&, const double&);
+
+    // new matrix types
+    typedef Eigen::Matrix<double, 6, 1> Vector6d;
+
 public:
     // constructor
     MovingMassController(const Remus&, const double&, const double&, const double&, const double&, const double&);
@@ -54,7 +55,7 @@ private:
 public:
     double mass_position_ = 0;
     // the member method used to compute yv
-    vector<double> ComputeActuation(const Vector6d&, const Vector6d&, const double&, const double&);
+    std::vector<double> ComputeActuation(const Vector6d&, const Vector6d&, const double&, const double&);
 };
 // constructor
 MovingMassController::MovingMassController(const Remus &vehicle, const double &k0, const double &k1, const double &k2,
@@ -104,18 +105,18 @@ MovingMassController::MovingMassController(const Remus &vehicle, const double &k
     g3_ = mv_*vehicle.gravity_/(1-M_*R1_)/(vehicle.Ixx_+vehicle.a44_);
 }
 // member methods
-double MovingMassController::f1(const double &r) const { return J2_*U0_*r + Gamma42_*r*abs(r); }
-double MovingMassController::pf1pr(const double &r) const { return J2_*U0_ + 2*Gamma42_*abs(r); }
+double MovingMassController::f1(const double &r) const { return J2_*U0_*r + Gamma42_*r*std::fabs(r); }
+double MovingMassController::pf1pr(const double &r) const { return J2_*U0_ + 2*Gamma42_*std::fabs(r); }
 double MovingMassController::ppf1prr(const double &r) const { return 2*Gamma42_*boost::math::sign(r); }
 double MovingMassController::f2(const double &v, const double &r) const { return G2_*U0_*v + H2_*U0_*r +
-            Gamma12_*v*abs(v) + Gamma22_*r*abs(r); }
-double MovingMassController::pf2pv(const double &v) const { return G2_*U0_ + 2*Gamma12_*abs(v); }
-double MovingMassController::pf2pr(const double &r) const { return H2_*U0_ + 2*Gamma22_*abs(r); }
+            Gamma12_*v*std::fabs(v) + Gamma22_*r*std::fabs(r); }
+double MovingMassController::pf2pv(const double &v) const { return G2_*U0_ + 2*Gamma12_*std::fabs(v); }
+double MovingMassController::pf2pr(const double &r) const { return H2_*U0_ + 2*Gamma22_*std::fabs(r); }
 double MovingMassController::ppf2pvv(const double &v) const { return 2*Gamma12_*boost::math::sign(v); }
 double MovingMassController::ppf2prr(const double &r) const { return 2*Gamma22_*boost::math::sign(r); }
 double MovingMassController::f3(const double &v, const double &r, const double &p, const double &phi) const {
-    return -M_*G2_*U0_*v - M_*(H2_+1)*U0_*r + N2_*p - M_*Gamma12_*v*abs(v) - M_*Gamma22_*r*abs(r) \
-            + N2q_*p*abs(p) + epsilon32_*sin(phi);
+    return -M_*G2_*U0_*v - M_*(H2_+1)*U0_*r + N2_*p - M_*Gamma12_*v*std::fabs(v) - M_*Gamma22_*r*std::fabs(r) \
+            + N2q_*p*std::fabs(p) + epsilon32_*sin(phi);
 }
 double MovingMassController::dr(const double &v, const double &r) const { return f1(r) + g1_*v; }
 double MovingMassController::ddr(const double &v, const double &r, const double &phi) const {
@@ -132,9 +133,9 @@ double MovingMassController::ddv(const double &v, const double &r, const double 
 }
 
 double MovingMassController::sat(const double &x) const {
-    return ( abs(x) <= 1 ? x : boost::math::sign(x) );
+    return ( std::fabs(x) <= 1 ? x : boost::math::sign(x) );
 }
-vector<double> MovingMassController::ComputeActuation(const Vector6d &rvelocity, const Vector6d &position,
+std::vector<double> MovingMassController::ComputeActuation(const Vector6d &rvelocity, const Vector6d &position,
                                                       const double &heading_ref, const double &step_size) {
     double v = rvelocity[1]; // sway velocity
     double r = rvelocity[5]; // yaw rate
@@ -164,19 +165,19 @@ vector<double> MovingMassController::ComputeActuation(const Vector6d &rvelocity,
     double dalpha3 = -k3_*(p-dalpah2) - g2_*(dv(v,r,phi) - dalpha1) + ddalpha2;
     double z4 = p - alpha3;
 
-    vector<double> errors = {epsi, z1, z2, z3, z4};
+    std::vector<double> errors = {epsi, z1, z2, z3, z4};
     // actuation stores both the tunnel thrust and mass position
-    vector<double> actuation(2, 0);
+    std::vector<double> actuation(2, 0);
 
     // set saturation to the mass position
     double mass_pos = (-k4_*z4-z3-f3(v,r,p,phi)+dalpha3)/g3_;
-    mass_pos = abs(mass_pos) > 0.06 ? boost::math::sign(mass_pos)*0.06 : mass_pos;
-    mass_pos = abs(mass_pos-mass_position_) > 0.06*step_size ? (mass_position_ +
+    mass_pos = std::fabs(mass_pos) > 0.06 ? boost::math::sign(mass_pos)*0.06 : mass_pos;
+    mass_pos = std::fabs(mass_pos-mass_position_) > 0.06*step_size ? (mass_position_ +
             boost::math::sign(mass_pos-mass_position_)*0.06*step_size) : mass_pos;
     // internal moving mass position
     actuation[0] = mass_pos;
     // acceleration along y axis
-    actuation[1] = abs(epsilon42_*actuation[0])*sat(errors[2]/1e-3);
+    actuation[1] = std::fabs(epsilon42_*actuation[0])*sat(errors[2]/1e-3);
 
     mass_position_ = mass_pos;
 
@@ -184,7 +185,7 @@ vector<double> MovingMassController::ComputeActuation(const Vector6d &rvelocity,
 }
 // progress bar
 void PrintProgBar(const size_t &percent) {
-    string bar;
+    std::string bar;
     for (size_t i = 0; i < 50; ++i) {
         if (i < (percent/2)) {
             bar.replace(i, 1, "-");
@@ -194,56 +195,58 @@ void PrintProgBar(const size_t &percent) {
             bar.replace(i, 1, " ");
         }
     }
-    cout << "\r" "[" << bar << "]";
-    cout.width(3);
-    cout << percent << "%    " << flush;
+    std::cout << "\r" "[" << bar << "]";
+    std::cout.width(3);
+    std::cout << percent << "%    " << std::flush;
 }
 // save velocity and position data into text files
-void OutputData(const Remus &vehicle, const MovingMassController &controller, const string &mode = "trunc",
-                const string &velocity_file = "velocity_file.dat", const string &position_file = "position_file.dat",
-                const string &rvelocity_file = "relative_vel_file.dat", const string &control_file = "control_file.dat")
+void OutputData(const Remus &vehicle, const MovingMassController &controller, const std::string &mode = "trunc",
+                const std::string &velocity_file = "results/velocity_file.dat",
+                const std::string &position_file = "results/position_file.dat",
+                const std::string &rvelocity_file = "results/relative_vel_file.dat",
+                const std::string &control_file = "results/control_file.dat")
 {
-    ofstream velocity_out, position_out, rvelocity_out, control_out;
+    std::ofstream velocity_out, position_out, rvelocity_out, control_out;
     if (mode == "trunc") {
         velocity_out.open(velocity_file);
         position_out.open(position_file);
         rvelocity_out.open(rvelocity_file);
         control_out.open(control_file);
     } else {
-        velocity_out.open(velocity_file, ofstream::app);
-        position_out.open(position_file, ofstream::app);
-        rvelocity_out.open(rvelocity_file, ofstream::app);
-        control_out.open(control_file, ofstream::app);
+        velocity_out.open(velocity_file, std::ofstream::app);
+        position_out.open(position_file, std::ofstream::app);
+        rvelocity_out.open(rvelocity_file, std::ofstream::app);
+        control_out.open(control_file, std::ofstream::app);
     }
     // velocity
-    velocity_out << fixed << setprecision(1) << vehicle.current_time_ << '\t';     // first column is time
-    velocity_out << setprecision(5);
+    velocity_out << std::fixed << std::setprecision(1) << vehicle.current_time_ << '\t';     // first column is time
+    velocity_out << std::setprecision(5);
     for (size_t index = 0; index < 6; ++index) {      // the remaining columns are data
-        velocity_out << scientific << vehicle.velocity_[index] << '\t';
+        velocity_out << std::scientific << vehicle.velocity_[index] << '\t';
     }
-    velocity_out << endl;
+    velocity_out << std::endl;
 
     // position
-    position_out << fixed << setprecision(1) << vehicle.current_time_ << '\t';
-    position_out << setprecision(5);
+    position_out << std::fixed << std::setprecision(1) << vehicle.current_time_ << '\t';
+    position_out << std::setprecision(5);
     for (size_t index = 0; index < 6; ++index) {
-        position_out << scientific << vehicle.position_[index] << '\t';
+        position_out << std::scientific << vehicle.position_[index] << '\t';
     }
-    position_out << endl;
+    position_out << std::endl;
 
     // relative velocity
-    rvelocity_out << fixed << setprecision(1) << vehicle.current_time_ << '\t';
-    rvelocity_out << setprecision(5);
+    rvelocity_out << std::fixed << std::setprecision(1) << vehicle.current_time_ << '\t';
+    rvelocity_out << std::setprecision(5);
     for (size_t index = 0; index < 6; ++index) {
-        rvelocity_out << scientific << vehicle.relative_velocity_[index] << '\t';
+        rvelocity_out << std::scientific << vehicle.relative_velocity_[index] << '\t';
     }
-    rvelocity_out << endl;
+    rvelocity_out << std::endl;
 
     // control signal
-    control_out << fixed << setprecision(1) << vehicle.current_time_ << '\t';
-    control_out << setprecision(5);
-    control_out << scientific << controller.mass_position_*100 << '\t'; // unit: cm
-    control_out << vehicle.actuation_[1] << endl;
+    control_out << std::fixed << std::setprecision(1) << vehicle.current_time_ << '\t';
+    control_out << std::setprecision(5);
+    control_out << std::scientific << controller.mass_position_*100 << '\t'; // unit: cm
+    control_out << vehicle.actuation_[1] << std::endl;
 
     // close the files
     velocity_out.close();
@@ -256,11 +259,11 @@ void RunRemus(Remus &vehicle, const double &heading_ref, const size_t &step_numb
     vehicle.step_number_ = step_number;
     vehicle.step_size_ = step_size;
     // ode solver
-    runge_kutta_dopri5 <vector<double>> stepper;
+    boost::numeric::odeint::runge_kutta_dopri5 <std::vector<double>> stepper;
     // internal moving mass controller
     MovingMassController controller(vehicle, 0.3, 0.8, 1, 1, 1);
-    vector<double> state;
-    vector<double> ctr_signal;
+    std::vector<double> state;
+    std::vector<double> ctr_signal;
     for (size_t index = 0; index < 6; ++index) {
         state.push_back(vehicle.velocity_[index]);
     }
@@ -270,9 +273,9 @@ void RunRemus(Remus &vehicle, const double &heading_ref, const size_t &step_numb
     // save current velocity and position data into two separate files
     OutputData(vehicle, controller);
     // start the simulation
-    cout << "The simulation will run for " << step_number << " steps. " << "The step size is "
-    << step_size << " second." << endl;
-    cout << "Please be patient. Running.............." << endl;
+    std::cout << "The simulation will run for " << step_number << " steps. " << "The step size is "
+    << step_size << " second." << std::endl;
+    std::cout << "Please be patient. Running.............." << std::endl;
     for (size_t counter = 1; counter <= step_number; ++counter) {
         // call the ode solver
         stepper.do_step(vehicle, state, vehicle.current_time_, step_size);
@@ -303,7 +306,7 @@ void RunRemus(Remus &vehicle, const double &heading_ref, const size_t &step_numb
         // write the current velocity and position data into the output files
         OutputData(vehicle, controller, "app");
     }
-    cout << endl << "The simulation is done." << endl;
+    std::cout << std::endl << "The simulation is done." << std::endl;
 }
 
 #endif //REMUSIMM_CONTROLLER_H
